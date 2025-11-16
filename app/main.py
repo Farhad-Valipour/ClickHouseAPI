@@ -1,20 +1,25 @@
 """
-Main FastAPI application.
+Main FastAPI application with Phase 2 enhancements.
 
-This module creates and configures the FastAPI application with
-routers, middleware, exception handlers, and lifecycle events.
+Phase 2 Features:
+- Structured logging
+- Logging middleware
+- Async endpoints
+- Enhanced error handling
 """
 
 from fastapi import FastAPI, Request, status
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from datetime import datetime
-import time
 
 from app.config import settings
 from app.core.exceptions import BaseAPIException
-from app.core.database import ClickHouseManager
-from app.routers import health_router, ohlcv_router
+from app.core.database_async import ClickHouseManager
+from app.core.logging_config import logger
+from app.middleware.logging import LoggingMiddleware
+from app.routers import health_router
+from app.routers.ohlcv_async import router as ohlcv_router
 
 
 # ============================================================================
@@ -27,6 +32,13 @@ app = FastAPI(
     description="""
     A production-ready REST API for accessing OHLCV (Open, High, Low, Close, Volume) 
     data from ClickHouse database.
+    
+    ## Phase 2 Features
+    
+    * 📊 **Structured Logging**: JSON-formatted logs with request tracking
+    * ⚡ **Async Endpoints**: Non-blocking I/O for better performance
+    * 🔍 **Request Tracking**: Unique request IDs for debugging
+    * 📈 **Performance Metrics**: Query timing and monitoring
     
     ## Features
     
@@ -49,9 +61,10 @@ app = FastAPI(
 
 
 # ============================================================================
-# CORS Middleware
+# Middleware
 # ============================================================================
 
+# CORS Middleware
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.CORS_ORIGINS,
@@ -60,24 +73,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
-# ============================================================================
-# Request Timing Middleware
-# ============================================================================
-
-@app.middleware("http")
-async def add_process_time_header(request: Request, call_next):
-    """
-    Add processing time header to all responses.
-    
-    This middleware tracks how long each request takes to process
-    and adds the information to the response headers.
-    """
-    start_time = time.time()
-    response = await call_next(request)
-    process_time = time.time() - start_time
-    response.headers["X-Process-Time"] = f"{process_time:.4f}"
-    return response
+# Logging Middleware (Phase 2)
+app.add_middleware(LoggingMiddleware)
 
 
 # ============================================================================
@@ -86,12 +83,16 @@ async def add_process_time_header(request: Request, call_next):
 
 @app.exception_handler(BaseAPIException)
 async def api_exception_handler(request: Request, exc: BaseAPIException):
-    """
-    Handle all custom API exceptions.
-    
-    This handler ensures consistent error response format for all
-    custom exceptions in the application.
-    """
+    """Handle all custom API exceptions with logging."""
+    logger.error(
+        f"API Exception: {exc.error_code} - {exc.message}",
+        extra={
+            "error_code": exc.error_code,
+            "status_code": exc.status_code,
+            "endpoint": request.url.path,
+            "method": request.method
+        }
+    )
     return JSONResponse(
         status_code=exc.status_code,
         content=exc.to_dict()
@@ -100,11 +101,14 @@ async def api_exception_handler(request: Request, exc: BaseAPIException):
 
 @app.exception_handler(ValueError)
 async def value_error_handler(request: Request, exc: ValueError):
-    """
-    Handle ValueError exceptions (typically from validation).
-    
-    Converts Python ValueError to a proper API error response.
-    """
+    """Handle ValueError exceptions with logging."""
+    logger.warning(
+        f"Validation error: {str(exc)}",
+        extra={
+            "endpoint": request.url.path,
+            "method": request.method
+        }
+    )
     return JSONResponse(
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
         content={
@@ -119,17 +123,15 @@ async def value_error_handler(request: Request, exc: ValueError):
 
 @app.exception_handler(Exception)
 async def generic_exception_handler(request: Request, exc: Exception):
-    """
-    Handle all unhandled exceptions.
-    
-    This is the last resort handler that catches any exception that
-    wasn't handled by more specific handlers. It ensures the API
-    never returns unformatted error responses.
-    
-    Note: In production, we don't expose internal error details.
-    """
-    # TODO: Add structured logging in Phase 2
-    # logger.error(f"Unhandled exception: {exc}", exc_info=True)
+    """Handle all unhandled exceptions with logging."""
+    logger.exception(
+        f"Unhandled exception: {str(exc)}",
+        extra={
+            "endpoint": request.url.path,
+            "method": request.method,
+            "exception_type": type(exc).__name__
+        }
+    )
     
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -149,44 +151,33 @@ async def generic_exception_handler(request: Request, exc: Exception):
 
 @app.on_event("startup")
 async def startup_event():
-    """
-    Application startup tasks.
-    
-    This runs once when the application starts. We use it to:
-    - Initialize database connections
-    - Verify configuration
-    - Log startup information
-    """
-    print(f"🚀 Starting {settings.APP_NAME} v{settings.APP_VERSION}")
-    print(f"📊 Environment: {settings.ENVIRONMENT}")
-    print(f"🔗 ClickHouse: {settings.CLICKHOUSE_HOST}:{settings.CLICKHOUSE_PORT}")
+    """Application startup tasks with enhanced logging."""
+    logger.info(f"Starting {settings.APP_NAME} v{settings.APP_VERSION}")
+    logger.info(f"Environment: {settings.ENVIRONMENT}")
+    logger.info(f"ClickHouse: {settings.CLICKHOUSE_HOST}:{settings.CLICKHOUSE_PORT}")
+    logger.info(f"Log Level: {settings.LOG_LEVEL}")
+    logger.info(f"Log Format: {settings.LOG_FORMAT}")
     
     # Initialize database connection
     db = ClickHouseManager()
     try:
         db.connect()
-        print("✅ Database connection established")
+        logger.info("Database connection established successfully")
     except Exception as e:
-        print(f"⚠️  Warning: Could not connect to database: {e}")
-        print("   API will start but database endpoints may fail")
+        logger.error(f"Failed to connect to database: {str(e)}")
+        logger.warning("API will start but database endpoints may fail")
 
 
 @app.on_event("shutdown")
 async def shutdown_event():
-    """
-    Application shutdown tasks.
-    
-    This runs once when the application shuts down. We use it to:
-    - Close database connections gracefully
-    - Cleanup resources
-    - Log shutdown information
-    """
-    print(f"🛑 Shutting down {settings.APP_NAME}")
+    """Application shutdown tasks with enhanced logging."""
+    logger.info(f"Shutting down {settings.APP_NAME}")
     
     # Close database connections
     db = ClickHouseManager()
     db.close()
-    print("✅ Database connections closed")
+    logger.info("Database connections closed successfully")
+    logger.info("Shutdown complete")
 
 
 # ============================================================================
@@ -199,7 +190,7 @@ app.include_router(
     tags=["Health"]
 )
 
-# OHLCV data endpoints (with API prefix)
+# OHLCV data endpoints (with API prefix) - Async version
 app.include_router(
     ohlcv_router,
     prefix=settings.API_PREFIX,
@@ -218,16 +209,18 @@ app.include_router(
     description="Get basic information about the API"
 )
 async def root():
-    """
-    Root endpoint providing API information.
-    
-    Returns basic information about the API including version,
-    available endpoints, and documentation links.
-    """
+    """Root endpoint providing API information."""
     return {
         "service": settings.APP_NAME,
         "version": settings.APP_VERSION,
         "status": "running",
+        "phase": "Phase 2 - Production Ready",
+        "features": {
+            "structured_logging": True,
+            "async_endpoints": True,
+            "request_tracking": True,
+            "performance_metrics": True
+        },
         "docs": {
             "swagger": "/docs",
             "redoc": "/redoc",
@@ -242,7 +235,7 @@ async def root():
 
 
 # ============================================================================
-# Run Application (for development)
+# Run Application
 # ============================================================================
 
 if __name__ == "__main__":

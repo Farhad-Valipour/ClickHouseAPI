@@ -1,30 +1,21 @@
 """
-OHLCV data endpoints.
+OHLCV data endpoints with async support.
 
-These endpoints provide access to OHLCV (Open, High, Low, Close, Volume)
-candlestick data stored in ClickHouse.
+These async endpoints provide better performance under high load
+by not blocking the event loop during database operations.
 """
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, HTTPException
 from datetime import datetime
 import time
 
 from app.config import settings
-from app.core.database import ClickHouseManager
-from app.core.exceptions import (
-    DataNotFoundError,
-    DatabaseException,
-)
-from app.models.request import (
-    OHLCVQueryParams,
-    LatestQueryParams,
-)
-from app.models.response import (
-    OHLCVData,
-    OHLCVResponse,
-    ResponseMetadata,
-)
+from app.core.database_async import ClickHouseManager
+from app.core.exceptions import DatabaseException
+from app.models.request import OHLCVQueryParams, LatestQueryParams
+from app.models.response import OHLCVData, OHLCVResponse, ResponseMetadata
 from app.utils.time_parser import parse_time_param
+from app.core.logging_config import logger
 
 router = APIRouter(prefix="/ohlcv", tags=["OHLCV"])
 
@@ -33,7 +24,7 @@ router = APIRouter(prefix="/ohlcv", tags=["OHLCV"])
     "/",
     response_model=OHLCVResponse,
     summary="Get OHLCV data",
-    description="Retrieve OHLCV candlestick data for a symbol within a time range"
+    description="Retrieve OHLCV candlestick data for a symbol within a time range (async)"
 )
 async def get_ohlcv(
     symbol: str,
@@ -43,10 +34,9 @@ async def get_ohlcv(
     offset: int = 0
 ):
     """
-    Get OHLCV data for a symbol in a specified time range.
+    Get OHLCV data for a symbol in a specified time range (async).
     
-    This endpoint retrieves candlestick data with pagination support.
-    All queries are parameterized to prevent SQL injection.
+    This async endpoint provides better performance under high load.
     
     Args:
         symbol: Trading symbol (e.g., BINANCE:BTCUSDT.P)
@@ -57,14 +47,8 @@ async def get_ohlcv(
         
     Returns:
         OHLCVResponse containing data array and metadata
-        
-    Raises:
-        HTTPException: If validation fails or database error occurs
-        
-    Example:
-        GET /api/v1/ohlcv?symbol=BINANCE:BTCUSDT.P&start=20250701-0000&end=20250801-0000
     """
-    # Validate parameters using Pydantic
+    # Validate parameters
     try:
         params = OHLCVQueryParams(
             symbol=symbol,
@@ -74,6 +58,7 @@ async def get_ohlcv(
             offset=offset
         )
     except ValueError as e:
+        logger.warning(f"Validation error: {str(e)}")
         raise HTTPException(status_code=422, detail=str(e))
     
     # Parse times
@@ -102,11 +87,11 @@ async def get_ohlcv(
     # Get database connection
     db = ClickHouseManager()
     
-    # Execute query with timing
+    # Execute query with timing (async)
     start_time = time.time()
     
     try:
-        result = db.execute_query(
+        result = await db.execute_query_async(
             query,
             parameters={
                 'table': settings.CLICKHOUSE_TABLE,
@@ -118,12 +103,13 @@ async def get_ohlcv(
             }
         )
     except DatabaseException as e:
+        logger.error(f"Database error: {e.message}")
         raise HTTPException(
             status_code=e.status_code,
             detail=e.to_dict()
         )
     
-    query_time = (time.time() - start_time) * 1000  # Convert to ms
+    query_time = (time.time() - start_time) * 1000
     
     # Transform results to OHLCVData models
     data = [
@@ -138,6 +124,10 @@ async def get_ohlcv(
         )
         for row in result.result_rows
     ]
+    
+    logger.info(
+        f"Retrieved {len(data)} records for {params.symbol} in {query_time:.2f}ms"
+    )
     
     # Build response with metadata
     return OHLCVResponse(
@@ -158,30 +148,23 @@ async def get_ohlcv(
     "/latest",
     response_model=OHLCVData,
     summary="Get latest candle",
-    description="Retrieve the most recent OHLCV candle for a symbol"
+    description="Retrieve the most recent OHLCV candle for a symbol (async)"
 )
 async def get_latest(symbol: str):
     """
-    Get the latest OHLCV candle for a symbol.
-    
-    This endpoint retrieves only the most recent candlestick data point.
+    Get the latest OHLCV candle for a symbol (async).
     
     Args:
         symbol: Trading symbol (e.g., BINANCE:BTCUSDT.P)
         
     Returns:
         Single OHLCVData object
-        
-    Raises:
-        HTTPException: If symbol not found or database error occurs
-        
-    Example:
-        GET /api/v1/ohlcv/latest?symbol=BINANCE:BTCUSDT.P
     """
     # Validate parameters
     try:
         params = LatestQueryParams(symbol=symbol)
     except ValueError as e:
+        logger.warning(f"Validation error: {str(e)}")
         raise HTTPException(status_code=422, detail=str(e))
     
     # Build safe parameterized query
@@ -204,7 +187,7 @@ async def get_latest(symbol: str):
     db = ClickHouseManager()
     
     try:
-        result = db.execute_query(
+        result = await db.execute_query_async(
             query,
             parameters={
                 'table': settings.CLICKHOUSE_TABLE,
@@ -212,6 +195,7 @@ async def get_latest(symbol: str):
             }
         )
     except DatabaseException as e:
+        logger.error(f"Database error: {e.message}")
         raise HTTPException(
             status_code=e.status_code,
             detail=e.to_dict()
@@ -219,6 +203,7 @@ async def get_latest(symbol: str):
     
     # Check if data found
     if not result.result_rows:
+        logger.warning(f"No data found for symbol: {params.symbol}")
         raise HTTPException(
             status_code=404,
             detail={
@@ -231,6 +216,8 @@ async def get_latest(symbol: str):
     
     # Return single data point
     row = result.result_rows[0]
+    logger.info(f"Retrieved latest candle for {params.symbol}")
+    
     return OHLCVData(
         candle_time=row[0],
         symbol=row[1],
