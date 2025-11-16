@@ -21,6 +21,8 @@ wheels/
 *.egg
 MANIFEST
 
+.farhad
+
 # Virtual Environment
 venv/
 env/
