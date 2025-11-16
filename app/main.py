@@ -15,11 +15,11 @@ from datetime import datetime
 
 from app.config import settings
 from app.core.exceptions import BaseAPIException
-from app.core.database_async import ClickHouseManager
+from app.core.database import ClickHouseManager
 from app.core.logging_config import logger
 from app.middleware.logging import LoggingMiddleware
 from app.routers import health_router
-from app.routers.ohlcv_async import router as ohlcv_router
+from app.routers.ohlcv import router as ohlcv_router
 
 
 # ============================================================================

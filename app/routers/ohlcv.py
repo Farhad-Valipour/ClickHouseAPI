@@ -10,7 +10,7 @@ from datetime import datetime
 import time
 
 from app.config import settings
-from app.core.database_async import ClickHouseManager
+from app.core.database import ClickHouseManager
 from app.core.exceptions import DatabaseException
 from app.models.request import OHLCVQueryParams, LatestQueryParams
 from app.models.response import OHLCVData, OHLCVResponse, ResponseMetadata
