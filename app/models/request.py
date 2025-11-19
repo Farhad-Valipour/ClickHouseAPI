@@ -83,24 +83,16 @@ class OHLCVQueryParams(BaseModel):
     @classmethod
     def validate_time_range(cls, v: Optional[str], info) -> Optional[str]:
         """
-        Ensure end time is after start time.
+        Ensure end time is not before start time.
         
-        Args:
-            v: End time string
-            info: Validation info containing other field values
-            
-        Returns:
-            Validated end time
-            
-        Raises:
-            ValueError: If end time is before start time
+        Note: Equal times are allowed (e.g., to get a specific candle)
         """
         if v and 'start' in info.data:
             start_dt = datetime.strptime(info.data['start'], "%Y%m%d-%H%M")
             end_dt = datetime.strptime(v, "%Y%m%d-%H%M")
             
-            if end_dt <= start_dt:
-                raise ValueError("End time must be after start time")
+            if end_dt < start_dt:  
+                raise ValueError("End time cannot be before start time")
         
         return v
     
