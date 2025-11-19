@@ -116,6 +116,98 @@ class ResponseMetadata(BaseModel):
             datetime: lambda v: v.isoformat()
         }
 
+class LatestResponseMetadata(BaseModel):
+
+    """
+
+    Metadata for latest candle API responses.
+
+    
+
+    Provides information about the latest candle query.
+
+    Similar to ResponseMetadata but tailored for single/latest N candle queries.
+
+    """
+
+    
+
+    total_records: int = Field(
+
+        ...,
+
+        description="Total number of records returned (1 for latest, N for latest N candles)"
+
+    )
+
+    
+
+    limit: int = Field(
+
+        ...,
+
+        description="Limit used in the query"
+
+    )
+
+    
+
+    offset: int = Field(
+
+        default=0,
+
+        description="Offset used in the query (always 0 for latest queries)"
+
+    )
+
+    
+
+    has_more: bool = Field(
+
+        ...,
+
+        description="Whether more records are available (for future latest N candles feature)"
+
+    )
+
+    
+
+    query_time_ms: float = Field(
+
+        ...,
+
+        description="Query execution time in milliseconds"
+
+    )
+
+    
+
+    timestamp: datetime = Field(
+
+        default_factory=datetime.utcnow,
+
+        description="Response generation timestamp"
+
+    )
+
+    
+
+    class Config:
+
+        """Pydantic model configuration."""
+
+        json_encoders = {
+
+            datetime: lambda v: v.isoformat()
+
+        }
+
+
+
+
+
+
+
 
 class OHLCVResponse(BaseModel):
     """
@@ -165,6 +257,109 @@ class OHLCVResponse(BaseModel):
                 }
             }
         }
+
+class LatestOHLCVResponse(BaseModel):
+
+    """
+
+    Response for latest candle endpoints.
+
+    
+
+    Contains the data array (with one or more candles) and metadata.
+
+    Uses consistent structure with main OHLCV endpoint for future "latest N candles" feature.
+
+    """
+
+    
+
+    success: bool = Field(
+
+        default=True,
+
+        description="Whether the request was successful"
+
+    )
+
+    
+
+    data: List[OHLCVData] = Field(
+
+        ...,
+
+        description="Array of OHLCV data points (single element for /latest, N elements for /latest?n=N)"
+
+    )
+
+    
+
+    metadata: LatestResponseMetadata = Field(
+
+        ...,
+
+        description="Response metadata including query info"
+
+    )
+
+    
+
+    class Config:
+
+        """Pydantic model configuration."""
+
+        json_schema_extra = {
+
+            "example": {
+
+                "success": True,
+
+                "data": [
+
+                    {
+
+                        "candle_time": "2025-11-19T12:00:00",
+
+                        "symbol": "BINANCE:BTCUSDT.P",
+
+                        "open": 50000.0,
+
+                        "high": 51000.0,
+
+                        "low": 49500.0,
+
+                        "close": 50500.0,
+
+                        "volume": 1234567.89
+
+                    }
+
+                ],
+
+                "metadata": {
+
+                    "total_records": 1,
+
+                    "limit": 1,
+
+                    "offset": 0,
+
+                    "has_more": False,
+
+                    "query_time_ms": 12.5,
+
+                    "timestamp": "2025-11-19T12:00:45.123Z"
+
+                }
+
+            }
+
+        }
+
+
+
+
+
 
 
 class ErrorResponse(BaseModel):
