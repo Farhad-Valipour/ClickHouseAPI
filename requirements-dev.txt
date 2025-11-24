@@ -1,23 +1,25 @@
+# Development Dependencies
+# Install with: pip install -r requirements-dev.txt
+
 # Testing
-pytest==7.4.3
-pytest-asyncio==0.21.1
-pytest-cov==4.1.0
-pytest-mock==3.12.0
-httpx==0.25.2
+pytest>=7.4.0
+pytest-cov>=4.1.0
+pytest-asyncio>=0.21.0
+pytest-xdist>=3.3.0  # For parallel test execution
+httpx>=0.25.0  # For TestClient
 
 # Code Quality
-black==23.11.0
-flake8==6.1.0
-mypy==1.7.0
-isort==5.12.0
+black>=23.0.0  # Code formatter
+isort>=5.12.0  # Import sorter
+flake8>=6.0.0  # Linter
+mypy>=1.5.0  # Static type checker
+pylint>=3.0.0  # Code analyzer
 
 # Development Tools
-ipython==8.18.1
-ipdb==0.13.13
-
-# Load Testing
-locust==2.17.0
+pre-commit>=3.5.0  # Git hooks
+ipython>=8.16.0  # Enhanced Python shell
+ipdb>=0.13.13  # Debugger
 
 # Documentation
-mkdocs==1.5.3
-mkdocs-material==9.4.14
+mkdocs>=1.5.0  # Documentation generator
+mkdocs-material>=9.4.0  # Material theme for mkdocs
