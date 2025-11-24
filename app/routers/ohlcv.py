@@ -3,6 +3,8 @@ OHLCV data endpoints with async support.
 
 These async endpoints provide better performance under high load
 by not blocking the event loop during database operations.
+
+Updated to support ISO 8601 time format with backward compatibility.
 """
 
 from fastapi import APIRouter, HTTPException
@@ -24,7 +26,7 @@ router = APIRouter(prefix="/ohlcv", tags=["OHLCV"])
     "/",
     response_model=OHLCVResponse,
     summary="Get OHLCV data",
-    description="Retrieve OHLCV candlestick data for a symbol within a time range (async)"
+    description="Retrieve OHLCV candlestick data for a symbol within a time range (async). Supports ISO 8601 time format."
 )
 async def get_ohlcv(
     symbol: str,
@@ -38,15 +40,24 @@ async def get_ohlcv(
     
     This async endpoint provides better performance under high load.
     
+    Time format: ISO 8601 (recommended) or legacy format YYYYMMDD-HHmm (deprecated)
+    
     Args:
         symbol: Trading symbol (e.g., BINANCE:BTCUSDT.P)
-        start: Start time in format YYYYMMDD-HHmm
-        end: End time in format YYYYMMDD-HHmm (optional, defaults to now)
+        start: Start time in ISO 8601 format (e.g., 2025-07-01T00:00:00Z) or legacy format (20250701-0000)
+        end: End time in ISO 8601 format or legacy format (optional, defaults to now)
         limit: Maximum number of records (1-10000, default: 1000)
         offset: Number of records to skip for pagination (default: 0)
         
     Returns:
         OHLCVResponse containing data array and metadata
+        
+    Examples:
+        # Using ISO 8601 format (recommended):
+        GET /api/v1/ohlcv?symbol=BINANCE:BTCUSDT.P&start=2025-07-01T00:00:00Z&end=2025-08-01T00:00:00Z
+        
+        # Using legacy format (deprecated):
+        GET /api/v1/ohlcv?symbol=BINANCE:BTCUSDT.P&start=20250701-0000&end=20250801-0000
     """
     # Validate parameters
     try:
@@ -61,7 +72,7 @@ async def get_ohlcv(
         logger.warning(f"Validation error: {str(e)}")
         raise HTTPException(status_code=422, detail=str(e))
     
-    # Parse times
+    # Parse times (supports both ISO 8601 and legacy format)
     start_dt = parse_time_param(params.start)
     end_dt = parse_time_param(params.end) if params.end else datetime.utcnow()
     
@@ -162,6 +173,9 @@ async def get_latest(symbol: str):
         
     Returns:
         LatestOHLCVResponse with data array containing single element and metadata
+        
+    Example:
+        GET /api/v1/ohlcv/latest?symbol=BINANCE:BTCUSDT.P
     """
     # Validate parameters
     try:
