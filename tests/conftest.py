@@ -4,6 +4,13 @@ Pytest configuration and fixtures.
 This module provides shared fixtures for testing the API.
 """
 
+import sys
+from pathlib import Path
+
+# Add project root to Python path
+project_root = Path(__file__).parent.parent
+sys.path.insert(0, str(project_root))
+
 import pytest
 from fastapi.testclient import TestClient
 from unittest.mock import Mock, MagicMock
@@ -106,12 +113,26 @@ def mock_query_result(sample_ohlcv_data):
 
 
 @pytest.fixture
-def valid_time_params():
+def valid_time_params_iso8601():
     """
-    Valid time parameters for testing.
+    Valid ISO 8601 time parameters for testing.
     
     Returns:
-        Dictionary with valid time parameters
+        Dictionary with valid ISO 8601 time parameters
+    """
+    return {
+        "start": "2025-07-01T00:00:00Z",
+        "end": "2025-08-01T00:00:00Z"
+    }
+
+
+@pytest.fixture
+def valid_time_params_legacy():
+    """
+    Valid legacy time parameters for testing.
+    
+    Returns:
+        Dictionary with valid legacy time parameters
     """
     return {
         "start": "20250701-0000",
@@ -129,5 +150,5 @@ def invalid_time_params():
     """
     return {
         "start": "invalid-time",
-        "end": "20250801-0000"
+        "end": "2025-08-01T00:00:00Z"
     }
