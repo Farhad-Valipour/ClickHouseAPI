@@ -1,7 +1,4 @@
 """
-Main FastAPI application with Phase 2 enhancements.
-
-Phase 2 Features:
 - Structured logging
 - Logging middleware
 - Async endpoints
@@ -33,25 +30,15 @@ app = FastAPI(
     A production-ready REST API for accessing OHLCV (Open, High, Low, Close, Volume) 
     data from ClickHouse database.
     
-    ## Phase 2 Features
-    
-    * 📊 **Structured Logging**: JSON-formatted logs with request tracking
-    * ⚡ **Async Endpoints**: Non-blocking I/O for better performance
-    * 🔍 **Request Tracking**: Unique request IDs for debugging
-    * 📈 **Performance Metrics**: Query timing and monitoring
-    
     ## Features
-    
     * 🔒 **Secure**: SQL injection protected with parameterized queries
     * ⚡ **Fast**: Optimized queries with connection pooling
     * 📊 **Paginated**: Support for large datasets with pagination
     * ✅ **Validated**: Automatic request validation with Pydantic
     * 📚 **Documented**: Auto-generated OpenAPI documentation
-    
-    ## Endpoints
-    
-    * **Health Checks**: `/health`, `/health/ready`, `/health/live`
-    * **OHLCV Data**: `/api/v1/ohlcv`, `/api/v1/ohlcv/latest`
+
+    ## Repository
+    GitHub: https://github.com/Farhad-Valipour/ClickHouseAPI
     """,
     docs_url="/docs",
     redoc_url="/redoc",
@@ -214,13 +201,6 @@ async def root():
         "service": settings.APP_NAME,
         "version": settings.APP_VERSION,
         "status": "running",
-        "phase": "Phase 2 - Production Ready",
-        "features": {
-            "structured_logging": True,
-            "async_endpoints": True,
-            "request_tracking": True,
-            "performance_metrics": True
-        },
         "docs": {
             "swagger": "/docs",
             "redoc": "/redoc",
@@ -230,6 +210,7 @@ async def root():
             "health": "/health",
             "ohlcv": f"{settings.API_PREFIX}/ohlcv"
         },
+        "Git":"https://github.com/Farhad-Valipour/ClickHouseAPI",
         "timestamp": datetime.utcnow().isoformat()
     }
 

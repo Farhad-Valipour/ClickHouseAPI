@@ -278,6 +278,16 @@ pytest tests/test_time_parser.py::TestParseTimeParam::test_iso8601_basic -v
 
 ## 📊 Database Schema
 
+### Prerequisites
+
+**Important:** This API is designed to work with an existing ClickHouse database. You need:
+
+1. ClickHouse server (installed locally, remote server, or cloud service)
+2. Database created
+3. OHLCV table with the schema below
+
+### Table Structure
+
 The API expects a ClickHouse table with the following structure:
 
 ```sql
@@ -293,7 +303,26 @@ CREATE TABLE ohlcv_data (
 ORDER BY (symbol, candle_time);
 ```
 
-See `scripts/init-db.sql` for the complete schema.
+### Setup Instructions
+
+1. **Install ClickHouse** (if not already installed):
+   - [Official Documentation](https://clickhouse.com/docs/en/install)
+   - Or use Docker: `docker run -d -p 8123:8123 clickhouse/clickhouse-server`
+
+2. **Create Database and Table**:
+   ```bash
+   # Connect to ClickHouse
+   clickhouse-client
+   
+   # Create database (if needed)
+   CREATE DATABASE IF NOT EXISTS default;
+   
+   # Create table (run the SQL above)
+   ```
+
+3. **Configure API**: Update `.env` with your ClickHouse connection details
+
+See `scripts/init-db.sql` for the complete schema and sample data.
 
 ## 🔧 Development
 
@@ -321,20 +350,30 @@ pytest
 
 ### Code Quality Tools
 
+Development tools for maintaining code quality (optional for contributors):
+
 ```bash
 # Format code
-black .
-isort .
+black .      # Auto-formats Python code
+isort .      # Sorts imports
 
 # Lint
-flake8 app tests
+flake8 app tests    # Checks code style
 
 # Type checking
-mypy app
+mypy app     # Validates type hints
 
 # Run all checks
 black . && isort . && flake8 app tests && mypy app && pytest
 ```
+
+**What these tools do:**
+- **black**: Automatically formats code to consistent style
+- **isort**: Organizes import statements
+- **flake8**: Finds code style issues and potential bugs
+- **mypy**: Checks type annotations for correctness
+
+**Note:** These are development tools for contributors. End users don't need them.
 
 ## 📚 Documentation
 
@@ -375,27 +414,76 @@ See [docs/EXAMPLES.md](docs/EXAMPLES.md#migration-from-legacy-format) for detail
 
 ## 🚀 Deployment
 
+### Prerequisites
+
+This API requires a ClickHouse database (local or remote) with the OHLCV table schema.
+
+**Note:** ClickHouse can be:
+- Running on the same server
+- Running on a separate server
+- A managed service (cloud provider)
+
 ### Docker Deployment
 
-```bash
-# Build image
-docker build -t clickhouse-ohlcv-api .
+#### Option 1: With Local ClickHouse (Development)
 
-# Run container
-docker run -p 8000:8000 --env-file .env clickhouse-ohlcv-api
-```
-
-### Docker Compose
+Use docker-compose to start both API and ClickHouse:
 
 ```bash
-# Start all services
+# Start all services (API + ClickHouse)
 docker-compose up -d
+
+# API will be available at http://localhost:8000
+# ClickHouse will be available at http://localhost:8123
 
 # View logs
 docker-compose logs -f api
 
 # Stop services
 docker-compose down
+```
+
+#### Option 2: API Only with External ClickHouse (Production)
+
+If you have ClickHouse running elsewhere, run only the API container:
+
+```bash
+# Build image
+docker build -t clickhouse-ohlcv-api .
+
+# Run API container connecting to external ClickHouse
+docker run -d -p 8000:8000 \
+  -e CLICKHOUSE_HOST=your-clickhouse-server.com \
+  -e CLICKHOUSE_PORT=8123 \
+  -e CLICKHOUSE_USER=default \
+  -e CLICKHOUSE_PASSWORD=your-password \
+  -e CLICKHOUSE_DATABASE=default \
+  -e CLICKHOUSE_TABLE=ohlcv_data \
+  clickhouse-ohlcv-api
+
+# Or using environment file
+docker run -d -p 8000:8000 --env-file .env clickhouse-ohlcv-api
+```
+
+#### Option 3: Docker Compose with External Database
+
+Modify `docker-compose.yml` to remove the ClickHouse service and update environment variables:
+
+```yaml
+services:
+  api:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - CLICKHOUSE_HOST=external-clickhouse.example.com
+      - CLICKHOUSE_PORT=8123
+      # ... other variables
+```
+
+Then run:
+```bash
+docker-compose up -d
 ```
 
 ## 🤝 Contributing
