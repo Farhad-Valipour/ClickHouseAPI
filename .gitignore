@@ -1,8 +1,14 @@
-# Python
+# Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
 *$py.class
+
+# C extensions
 *.so
+
+.farhad
+
+# Distribution / packaging
 .Python
 build/
 develop-eggs/
@@ -16,18 +22,19 @@ parts/
 sdist/
 var/
 wheels/
+share/python-wheels/
 *.egg-info/
 .installed.cfg
 *.egg
 MANIFEST
 
-.farhad
+# PyInstaller
+*.manifest
+*.spec
 
-# Virtual Environment
-venv/
-env/
-ENV/
-.venv/
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
 
 # IDE
 .vscode/
@@ -37,48 +44,72 @@ ENV/
 *~
 .DS_Store
 
-# Testing
-.pytest_cache/
-.coverage
-coverage.xml
+# Unit test / coverage reports
 htmlcov/
 .tox/
-.hypothesis/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
 *.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+cover/
 
-# Environment
-.env
-.env.local
-.env.*.local
+# Translations
+*.mo
+*.pot
 
-# Logs
+# Django stuff:
 *.log
-logs/
+local_settings.py
+db.sqlite3
+db.sqlite3-journal
 
-# Database
-*.db
-*.sqlite
+# Flask stuff:
+instance/
+.webassets-cache
 
-# OS
-.DS_Store
-Thumbs.db
+# Scrapy stuff:
+.scrapy
 
-# MyPy
-.mypy_cache/
-.dmypy.json
-dmypy.json
+# Sphinx documentation
+docs/_build/
+
+# PyBuilder
+.pybuilder/
+target/
 
 # Jupyter Notebook
 .ipynb_checkpoints
 
+# IPython
+profile_default/
+ipython_config.py
+
 # pyenv
 .python-version
 
-# Celery
+# pipenv
+Pipfile.lock
+
+# poetry
+poetry.lock
+
+# pdm
+.pdm.toml
+
+# PEP 582
+__pypackages__/
+
+# Celery stuff
 celerybeat-schedule
 celerybeat.pid
 
-# SageMath
+# SageMath parsed files
 *.sage.py
 
 # Environments
@@ -90,8 +121,46 @@ ENV/
 env.bak/
 venv.bak/
 
+# Spyder project settings
+.spyderproject
+.spyproject
+
+# Rope project settings
+.ropeproject
+
 # mkdocs documentation
 /site
 
-# Documentation builds
-docs/_build/
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Pyre type checker
+.pyre/
+
+# pytype static type analyzer
+.pytype/
+
+# Cython debug symbols
+cython_debug/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Project specific
+*.db
+*.sqlite
+*.log
+logs/
+data/
+temp/
+tmp/
