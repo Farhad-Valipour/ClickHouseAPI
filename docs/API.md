@@ -21,59 +21,86 @@ API Key authentication will be added in Phase 5.
 
 #### GET `/health`
 
-Basic health check endpoint.
+Comprehensive health check endpoint with database connectivity verification.
 
-**Response:**
+**Response (Healthy):**
 ```json
 {
+  "success": true,
   "status": "healthy",
+  "timestamp": "2025-11-29T09:38:47.442042",
+  "database": {
+    "connected": true,
+    "ping_ms": 1.45
+  },
   "version": "1.0.0",
-  "timestamp": "2025-11-13T10:30:45.123Z"
+  "query_time_ms": 1.47
+}
+```
+
+**Response (Unhealthy):**
+```json
+{
+  "success": false,
+  "status": "unhealthy",
+  "timestamp": "2025-11-29T09:38:47.442042",
+  "database": {
+    "connected": false,
+    "error": "Connection timeout"
+  },
+  "version": "1.0.0",
+  "query_time_ms": 1.47
 }
 ```
 
 **Status Codes:**
-- `200 OK`: API is healthy
+- `200 OK`: Always returns 200, check `status` field for health status
 
 ---
 
 #### GET `/health/ready`
 
-Readiness check with component status.
+Readiness check for Kubernetes and orchestration systems.
 
-**Response:**
+**Response (Ready):**
 ```json
 {
-  "status": "healthy",
-  "version": "1.0.0",
-  "timestamp": "2025-11-13T10:30:45.123Z",
-  "checks": {
-    "database": {
-      "status": "up",
-      "response_time_ms": 12.5
-    },
-    "api": {
-      "status": "up"
-    }
-  }
+  "success": true,
+  "ready": true,
+  "timestamp": "2025-11-29T09:38:47.442042"
+}
+```
+
+**Response (Not Ready):**
+```json
+{
+  "success": false,
+  "ready": false,
+  "reason": "Database not initialized",
+  "timestamp": "2025-11-29T09:38:47.442042"
 }
 ```
 
 **Status Codes:**
-- `200 OK`: Always returns 200, check `status` field
+- `200 OK`: Always returns 200, check `ready` field
 
 ---
 
 #### GET `/health/live`
 
-Simple liveness probe.
+Simple liveness probe for Kubernetes.
 
 **Response:**
 ```json
 {
-  "status": "ok"
+  "success": true,
+  "alive": true,
+  "timestamp": "2025-11-29T09:38:47.442042"
 }
 ```
+
+**Status Codes:**
+- `200 OK`: API process is running
 
 ---
 

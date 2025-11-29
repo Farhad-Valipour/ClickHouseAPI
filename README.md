@@ -80,9 +80,24 @@ uvicorn app.main:app --reload
 
 #### Health Checks
 
-- `GET /health` - Basic health check
-- `GET /health/ready` - Readiness check with database status
+- `GET /health` - Comprehensive health check with database status
+- `GET /health/ready` - Readiness check for orchestration systems
 - `GET /health/live` - Simple liveness probe
+
+**Health Check Response Example:**
+```json
+{
+  "success": true,
+  "status": "healthy",
+  "timestamp": "2025-11-29T09:38:47.442042",
+  "database": {
+    "connected": true,
+    "ping_ms": 1.45
+  },
+  "version": "1.0.0",
+  "query_time_ms": 1.47
+}
+```
 
 #### OHLCV Data
 
@@ -113,7 +128,7 @@ curl "http://localhost:8000/api/v1/ohlcv?symbol=BINANCE:BTCUSDT.P&start=2025-07-
 curl "http://localhost:8000/api/v1/ohlcv/latest?symbol=BINANCE:BTCUSDT.P"
 
 # Health check
-curl "http://localhost:8000/health/ready"
+curl "http://localhost:8000/health"
 ```
 
 #### Using Legacy Format (Deprecated)
