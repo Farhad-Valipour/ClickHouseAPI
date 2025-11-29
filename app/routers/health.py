@@ -7,104 +7,157 @@ and orchestration tools (e.g., Kubernetes health probes).
 
 from fastapi import APIRouter
 from datetime import datetime
+import time
 
 from app.config import settings
 from app.core.database import ClickHouseManager
-from app.models.response import (
-    HealthResponse,
-    DetailedHealthResponse,
-    HealthCheck,
-)
+from app.core.logging_config import logger
+
 
 router = APIRouter()
 
 
 @router.get(
     "/health",
-    response_model=HealthResponse,
-    summary="Basic health check",
-    description="Returns basic health status of the API",
-    tags=["Health"]
+    summary="Health check",
+    description="Check API and database health status",
+    tags=["Health"],
+    responses={
+        200: {"description": "API is healthy"},
+        503: {"description": "API is unhealthy"},
+    }
 )
 async def health_check():
     """
-    Basic health check endpoint.
+    Check the health status of the API and database connection.
     
-    This is a simple endpoint that returns the API status and version.
-    Useful for basic uptime monitoring.
-    
-    Returns:
-        HealthResponse with status and version
+    **Returns:**
+    - `success`: Whether the health check passed
+    - `status`: Overall health status (healthy/unhealthy)
+    - `timestamp`: Current server timestamp
+    - `database`: Database connection status
+    - `version`: API version
+    - `query_time_ms`: Health check execution time
     """
-    return HealthResponse(
-        status="healthy",
-        version=settings.APP_VERSION,
-        timestamp=datetime.utcnow()
-    )
+    start_time = time.time()
+    
+    try:
+        db = ClickHouseManager()
+        
+        # Check database connection
+        db_start = time.time()
+        db_health = db.health_check()
+        ping_duration = (time.time() - db_start) * 1000
+        
+        # Calculate total query time
+        query_time_ms = (time.time() - start_time) * 1000
+        
+        if db_health["status"] != "up":
+            logger.error("Database connection failed")
+            return {
+                "success": False,
+                "status": "unhealthy",
+                "timestamp": datetime.utcnow().isoformat(),
+                "database": {
+                    "connected": False,
+                    "error": db_health.get("error", "Failed to ping database")
+                },
+                "version": settings.APP_VERSION,
+                "query_time_ms": round(query_time_ms, 2)
+            }
+        
+        logger.info(f"Health check successful, ping_ms={round(ping_duration, 2)}")
+        
+        return {
+            "success": True,
+            "status": "healthy",
+            "timestamp": datetime.utcnow().isoformat(),
+            "database": {
+                "connected": True,
+                "ping_ms": round(ping_duration, 2)
+            },
+            "version": settings.APP_VERSION,
+            "query_time_ms": round(query_time_ms, 2)
+        }
+    
+    except Exception as e:
+        query_time_ms = (time.time() - start_time) * 1000
+        logger.error(f"Health check failed: {str(e)}")
+        return {
+            "success": False,
+            "status": "unhealthy",
+            "timestamp": datetime.utcnow().isoformat(),
+            "database": {
+                "connected": False,
+                "error": str(e)
+            },
+            "version": settings.APP_VERSION,
+            "query_time_ms": round(query_time_ms, 2)
+        }
 
 
 @router.get(
     "/health/ready",
-    response_model=DetailedHealthResponse,
     summary="Readiness check",
-    description="Returns detailed health status including database connectivity",
+    description="Check if API is ready to handle requests",
     tags=["Health"]
 )
 async def readiness_check():
     """
-    Readiness check endpoint.
-    
-    This endpoint checks if the API is ready to serve requests by
-    verifying that all dependencies (like the database) are available.
-    
-    Useful for Kubernetes readiness probes.
-    
-    Returns:
-        DetailedHealthResponse with status of all components
+    Check if the API is ready to handle requests.
+    Used by orchestration systems like Kubernetes.
     """
-    db = ClickHouseManager()
-    
-    # Check database health
-    db_health = db.health_check()
-    
-    # Check API health (always up if we can respond)
-    api_health = HealthCheck(status="up")
-    
-    # Determine overall status
-    all_healthy = db_health["status"] == "up"
-    overall_status = "healthy" if all_healthy else "unhealthy"
-    
-    return DetailedHealthResponse(
-        status=overall_status,
-        version=settings.APP_VERSION,
-        timestamp=datetime.utcnow(),
-        checks={
-            "database": HealthCheck(
-                status=db_health["status"],
-                response_time_ms=db_health.get("response_time_ms"),
-                error=db_health.get("error")
-            ),
-            "api": api_health
+    try:
+        db = ClickHouseManager()
+        
+        # Check if database manager is initialized
+        if db._client is None:
+            return {
+                "success": False,
+                "ready": False,
+                "reason": "Database not initialized",
+                "timestamp": datetime.utcnow().isoformat()
+            }
+        
+        # Verify connection
+        db_health = db.health_check()
+        
+        if db_health["status"] != "up":
+            return {
+                "success": False,
+                "ready": False,
+                "reason": "Database connection unhealthy",
+                "timestamp": datetime.utcnow().isoformat()
+            }
+        
+        return {
+            "success": True,
+            "ready": True,
+            "timestamp": datetime.utcnow().isoformat()
         }
-    )
+    
+    except Exception as e:
+        return {
+            "success": False,
+            "ready": False,
+            "reason": str(e),
+            "timestamp": datetime.utcnow().isoformat()
+        }
 
 
 @router.get(
     "/health/live",
     summary="Liveness check",
-    description="Simple ping endpoint for liveness probes",
+    description="Check if API is alive",
     tags=["Health"]
 )
 async def liveness_check():
     """
-    Liveness check endpoint.
-    
-    This is the simplest health check that just verifies the API
-    process is running and can respond to requests.
-    
-    Useful for Kubernetes liveness probes.
-    
-    Returns:
-        Simple status message
+    Check if the API is alive.
+    Used by orchestration systems like Kubernetes.
     """
-    return {"status": "ok"}
+    return {
+        "success": True,
+        "alive": True,
+        "timestamp": datetime.utcnow().isoformat()
+    }
